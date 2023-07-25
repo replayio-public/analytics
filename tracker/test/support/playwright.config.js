@@ -1,4 +1,5 @@
 const { devices } = require('@playwright/test');
+const { devices: replayDevices } = require("@replayio/playwright");
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -28,6 +29,10 @@ module.exports = {
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
+    },
+    {
+      name: "replay-chromium",
+      use: { ...replayDevices["Replay Chromium"] },
     },
   ],
   webServer: {
