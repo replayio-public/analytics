@@ -18,7 +18,7 @@ module.exports = {
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...replayDevices["Replay Chromium"] },
     },
 
     {
@@ -29,10 +29,6 @@ module.exports = {
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-    },
-    {
-      name: "replay-chromium",
-      use: { ...replayDevices["Replay Chromium"] },
     },
   ],
   webServer: {
