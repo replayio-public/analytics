@@ -6,6 +6,7 @@ const CssMinimizerWebpackPlugin = require('css-minimizer-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = (env, options) => ({
+  devtool: 'eval-source-map',
   optimization: {
     minimizer: [
       new TerserPlugin(),
