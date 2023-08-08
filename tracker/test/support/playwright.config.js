@@ -1,4 +1,5 @@
 const { devices } = require('@playwright/test');
+const { devices: replayDevices } = require("@replayio/playwright");
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -17,7 +18,7 @@ module.exports = {
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...replayDevices["Replay Chromium"] },
     },
 
     {

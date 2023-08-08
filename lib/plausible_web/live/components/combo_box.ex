@@ -58,10 +58,11 @@ defmodule PlausibleWeb.Live.Components.ComboBox do
       id={"input-picker-main-#{@id}"}
       class={@class}
       x-data={"window.suggestionsDropdown('#{@id}')"}
-      x-on:keydown.arrow-up="focusPrev"
-      x-on:keydown.arrow-down="focusNext"
-      x-on:keydown.enter="select()"
+      x-on:keydown.arrow-up.prevent="focusPrev"
+      x-on:keydown.arrow-down.prevent="focusNext"
+      x-on:keydown.enter.prevent="select"
       x-on:keydown.tab="close"
+      x-on:keydown.escape="close"
     >
       <div class="relative w-full">
         <div
@@ -144,7 +145,7 @@ defmodule PlausibleWeb.Live.Components.ComboBox do
       id={"dropdown-#{@ref}"}
       x-show="isOpen"
       x-ref="suggestions"
-      class="dropdown z-50 absolute mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm dark:bg-gray-900"
+      class="max-w-xs md:max-w-md lg:max-w-lg dropdown z-50 absolute mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm dark:bg-gray-900"
     >
       <.option
         :for={
@@ -163,7 +164,7 @@ defmodule PlausibleWeb.Live.Components.ComboBox do
       />
 
       <.option
-        :if={@creatable && String.length(@display_value) > 0}
+        :if={display_creatable_option?(assigns)}
         idx={length(@suggestions)}
         submit_value={@display_value}
         display_value={@display_value}
@@ -204,15 +205,13 @@ defmodule PlausibleWeb.Live.Components.ComboBox do
         phx-click={select_option(@ref, @submit_value, @display_value)}
         phx-value-display-value={@display_value}
         phx-target={@target}
-        class="block py-2 px-3"
+        class="block truncate py-2 px-3"
       >
-        <span class="block truncate">
-          <%= if @creatable do %>
-            Create "<%= @display_value %>"
-          <% else %>
-            <%= @display_value %>
-          <% end %>
-        </span>
+        <%= if @creatable do %>
+          Create "<%= @display_value %>"
+        <% else %>
+          <%= @display_value %>
+        <% end %>
       </a>
     </li>
     <li :if={@idx == @suggestions_limit - 1} class="text-xs text-gray-500 relative py-2 px-3">
@@ -252,16 +251,15 @@ defmodule PlausibleWeb.Live.Components.ComboBox do
         socket
       end
 
-    if input_len > 0 do
-      suggestions =
-        input
-        |> suggest_mod.suggest(options)
-        |> Enum.take(suggestions_limit(socket.assigns))
+    suggestions =
+      if input_len > 0 do
+        suggest_mod.suggest(input, options)
+      else
+        options
+      end
+      |> Enum.take(suggestions_limit(socket.assigns))
 
-      {:noreply, assign(socket, %{suggestions: suggestions})}
-    else
-      {:noreply, socket}
-    end
+    {:noreply, assign(socket, %{suggestions: suggestions})}
   end
 
   defp do_select(socket, submit_value, display_value) do
@@ -288,5 +286,14 @@ defmodule PlausibleWeb.Live.Components.ComboBox do
 
   defp suggestions_limit(assigns) do
     Map.get(assigns, :suggestions_limit, @default_suggestions_limit)
+  end
+
+  defp display_creatable_option?(assigns) do
+    empty_input? = String.length(assigns.display_value) == 0
+
+    input_matches_suggestion? =
+      Enum.any?(assigns.suggestions, fn {suggestion, _} -> assigns.display_value == suggestion end)
+
+    assigns.creatable && not empty_input? && not input_matches_suggestion?
   end
 end

@@ -748,11 +748,11 @@ defmodule Plausible.ImportedTest do
       assert json_response(conn, 200) == [
                %{
                  "name" => "/page2",
-                 "unique_exits" => 3,
-                 "total_exits" => 4,
+                 "visitors" => 3,
+                 "visits" => 4,
                  "exit_rate" => 80.0
                },
-               %{"name" => "/page1", "unique_exits" => 2, "total_exits" => 2, "exit_rate" => 66}
+               %{"name" => "/page1", "visitors" => 2, "visits" => 2, "exit_rate" => 66}
              ]
     end
 
@@ -837,7 +837,8 @@ defmodule Plausible.ImportedTest do
         build(:pageview,
           country_code: "GB",
           timestamp: ~N[2021-01-01 00:15:00]
-        )
+        ),
+        build(:imported_visitors, date: ~D[2021-01-01], visitors: 2)
       ])
 
       import_data(
@@ -905,7 +906,8 @@ defmodule Plausible.ImportedTest do
       populate_stats(site, [
         build(:pageview, screen_size: "Desktop", timestamp: ~N[2021-01-01 00:15:00]),
         build(:pageview, screen_size: "Desktop", timestamp: ~N[2021-01-01 00:15:00]),
-        build(:pageview, screen_size: "Laptop", timestamp: ~N[2021-01-01 00:15:00])
+        build(:pageview, screen_size: "Laptop", timestamp: ~N[2021-01-01 00:15:00]),
+        build(:imported_visitors, date: ~D[2021-01-01], visitors: 2)
       ])
 
       import_data(
@@ -949,7 +951,8 @@ defmodule Plausible.ImportedTest do
     test "Browsers data imported from Google Analytics", %{conn: conn, site: site} do
       populate_stats(site, [
         build(:pageview, browser: "Chrome", timestamp: ~N[2021-01-01 00:15:00]),
-        build(:pageview, browser: "Firefox", timestamp: ~N[2021-01-01 00:15:00])
+        build(:pageview, browser: "Firefox", timestamp: ~N[2021-01-01 00:15:00]),
+        build(:imported_visitors, visitors: 2, date: ~D[2021-01-01])
       ])
 
       import_data(
@@ -997,7 +1000,8 @@ defmodule Plausible.ImportedTest do
       populate_stats(site, [
         build(:pageview, operating_system: "Mac", timestamp: ~N[2021-01-01 00:15:00]),
         build(:pageview, operating_system: "Mac", timestamp: ~N[2021-01-01 00:15:00]),
-        build(:pageview, operating_system: "GNU/Linux", timestamp: ~N[2021-01-01 00:15:00])
+        build(:pageview, operating_system: "GNU/Linux", timestamp: ~N[2021-01-01 00:15:00]),
+        build(:imported_visitors, date: ~D[2021-01-01], visitors: 2)
       ])
 
       import_data(

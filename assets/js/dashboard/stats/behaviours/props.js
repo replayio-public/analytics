@@ -17,7 +17,7 @@ export default function Properties(props) {
     return null
   }
 
-  function fetchProps() {    
+  function fetchProps() {
     return api.get(url.apiPath(site, `/custom-prop-values/${encodeURIComponent(propKey)}`), query)
   }
 
@@ -43,10 +43,14 @@ export default function Properties(props) {
         getFilterFor={getFilterFor}
         keyLabel={propKey}
         metrics={[
-          {name: 'visitors', label: 'Visitors'},
-          {name: 'events', label: 'Events'},
-          query.filters.goal ? CR_METRIC : PERCENTAGE_METRIC
+          {name: 'visitors', label: 'Visitors', plot: true},
+          {name: 'events', label: 'Events', hiddenOnMobile: true},
+          query.filters.goal ? CR_METRIC : PERCENTAGE_METRIC,
+          {name: 'total_revenue', label: 'Revenue', hiddenOnMobile: true},
+          {name: 'average_revenue', label: 'Average', hiddenOnMobile: true}
         ]}
+        detailsLink={url.sitePath(site, `/custom-prop-values/${propKey}`)}
+        maybeHideDetails={true}
         query={query}
         color="bg-red-50"
         colMinWidth={90}

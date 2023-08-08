@@ -2,7 +2,7 @@ defmodule PlausibleWeb.Api.StatsController.CustomPropBreakdownTest do
   use PlausibleWeb.ConnCase
 
   describe "GET /api/stats/:domain/custom-prop-values/:prop_key" do
-    setup [:create_user, :log_in, :create_new_site]
+    setup [:create_user, :log_in, :create_new_site, :add_imported_data]
 
     test "returns breakdown by a custom property", %{conn: conn, site: site} do
       prop_key = "parim_s6ber"
@@ -43,6 +43,30 @@ defmodule PlausibleWeb.Api.StatsController.CustomPropBreakdownTest do
              ]
     end
 
+    test "ignores imported data when calculating percentage", %{conn: conn, site: site} do
+      prop_key = "parim_s6ber"
+
+      populate_stats(site, [
+        build(:pageview, "meta.key": [prop_key], "meta.value": ["K2sna Kalle"]),
+        build(:imported_visitors, visitors: 2)
+      ])
+
+      conn =
+        get(
+          conn,
+          "/api/stats/#{site.domain}/custom-prop-values/#{prop_key}?period=day&with_imported=true"
+        )
+
+      assert json_response(conn, 200) == [
+               %{
+                 "visitors" => 1,
+                 "name" => "K2sna Kalle",
+                 "events" => 1,
+                 "percentage" => 100.0
+               }
+             ]
+    end
+
     test "returns (none) values in the breakdown", %{conn: conn, site: site} do
       prop_key = "parim_s6ber"
 
@@ -69,6 +93,86 @@ defmodule PlausibleWeb.Api.StatsController.CustomPropBreakdownTest do
                  "visitors" => 1,
                  "name" => "(none)",
                  "events" => 1,
+                 "percentage" => 33.3
+               }
+             ]
+    end
+
+    test "(none) value is added as +1 to pagination limit", %{conn: conn, site: site} do
+      prop_key = "parim_s6ber"
+
+      populate_stats(site, [
+        build(:pageview, "meta.key": [prop_key], "meta.value": ["K2sna Kalle"]),
+        build(:pageview, "meta.key": [prop_key], "meta.value": ["K2sna Kalle"]),
+        build(:pageview)
+      ])
+
+      conn =
+        get(
+          conn,
+          "/api/stats/#{site.domain}/custom-prop-values/#{prop_key}?period=day&limit=1"
+        )
+
+      assert json_response(conn, 200) == [
+               %{
+                 "visitors" => 2,
+                 "name" => "K2sna Kalle",
+                 "events" => 2,
+                 "percentage" => 66.7
+               },
+               %{
+                 "visitors" => 1,
+                 "name" => "(none)",
+                 "events" => 1,
+                 "percentage" => 33.3
+               }
+             ]
+    end
+
+    test "(none) value is only included on the first page of results", %{conn: conn, site: site} do
+      prop_key = "kaksik"
+
+      populate_stats(site, [
+        build(:pageview, "meta.key": [prop_key], "meta.value": ["Teet"]),
+        build(:pageview, "meta.key": [prop_key], "meta.value": ["Teet"]),
+        build(:pageview, "meta.key": [prop_key], "meta.value": ["Tiit"]),
+        build(:pageview, "meta.key": [prop_key], "meta.value": ["Tiit"]),
+        build(:pageview, "meta.key": [prop_key], "meta.value": ["Tiit"]),
+        build(:pageview)
+      ])
+
+      conn1 =
+        get(
+          conn,
+          "/api/stats/#{site.domain}/custom-prop-values/#{prop_key}?period=day&limit=1&page=1"
+        )
+
+      conn2 =
+        get(
+          conn,
+          "/api/stats/#{site.domain}/custom-prop-values/#{prop_key}?period=day&limit=1&page=2"
+        )
+
+      assert json_response(conn1, 200) == [
+               %{
+                 "visitors" => 3,
+                 "name" => "Tiit",
+                 "events" => 3,
+                 "percentage" => 50.0
+               },
+               %{
+                 "visitors" => 1,
+                 "name" => "(none)",
+                 "events" => 1,
+                 "percentage" => 16.7
+               }
+             ]
+
+      assert json_response(conn2, 200) == [
+               %{
+                 "visitors" => 2,
+                 "name" => "Teet",
+                 "events" => 2,
                  "percentage" => 33.3
                }
              ]
@@ -670,6 +774,155 @@ defmodule PlausibleWeb.Api.StatsController.CustomPropBreakdownTest do
                  "conversion_rate" => 50.0
                }
              ]
+    end
+
+    test "returns revenue metrics when filtering by a revenue goal", %{conn: conn, site: site} do
+      prop_key = "logged_in"
+
+      populate_stats(site, [
+        build(:event,
+          name: "Payment",
+          "meta.key": [prop_key],
+          "meta.value": ["true"],
+          revenue_reporting_amount: Decimal.new("12"),
+          revenue_reporting_currency: "EUR"
+        ),
+        build(:event,
+          name: "Payment",
+          "meta.key": [prop_key],
+          "meta.value": ["true"],
+          revenue_reporting_amount: Decimal.new("100"),
+          revenue_reporting_currency: "EUR"
+        ),
+        build(:event,
+          name: "Payment",
+          "meta.key": [prop_key],
+          "meta.value": ["false"],
+          revenue_reporting_amount: Decimal.new("8"),
+          revenue_reporting_currency: "EUR"
+        )
+      ])
+
+      insert(:goal, %{site: site, event_name: "Payment", currency: :EUR})
+
+      filters = Jason.encode!(%{goal: "Payment"})
+
+      conn =
+        get(
+          conn,
+          "/api/stats/#{site.domain}/custom-prop-values/#{prop_key}?period=day&filters=#{filters}"
+        )
+
+      assert json_response(conn, 200) == [
+               %{
+                 "visitors" => 2,
+                 "name" => "true",
+                 "events" => 2,
+                 "conversion_rate" => 66.7,
+                 "total_revenue" => %{"long" => "€112.00", "short" => "€112.0"},
+                 "average_revenue" => %{"long" => "€56.00", "short" => "€56.0"}
+               },
+               %{
+                 "visitors" => 1,
+                 "name" => "false",
+                 "events" => 1,
+                 "conversion_rate" => 33.3,
+                 "total_revenue" => %{"long" => "€8.00", "short" => "€8.0"},
+                 "average_revenue" => %{"long" => "€8.00", "short" => "€8.0"}
+               }
+             ]
+    end
+
+    test "returns revenue metrics when filtering by many revenue goals with same currency", %{
+      conn: conn,
+      site: site
+    } do
+      prop_key = "logged_in"
+      insert(:goal, site: site, event_name: "Payment", currency: "EUR")
+      insert(:goal, site: site, event_name: "Payment2", currency: "EUR")
+
+      populate_stats(site, [
+        build(:event,
+          name: "Payment",
+          "meta.key": [prop_key],
+          "meta.value": ["false"],
+          revenue_reporting_amount: Decimal.new("10"),
+          revenue_reporting_currency: "EUR"
+        ),
+        build(:event,
+          name: "Payment",
+          "meta.key": [prop_key],
+          "meta.value": ["true"],
+          revenue_reporting_amount: Decimal.new("30"),
+          revenue_reporting_currency: "EUR"
+        ),
+        build(:event,
+          name: "Payment2",
+          "meta.key": [prop_key],
+          "meta.value": ["true"],
+          revenue_reporting_amount: Decimal.new("50"),
+          revenue_reporting_currency: "EUR"
+        )
+      ])
+
+      filters = Jason.encode!(%{goal: "Payment|Payment2"})
+
+      conn =
+        get(
+          conn,
+          "/api/stats/#{site.domain}/custom-prop-values/#{prop_key}?period=day&filters=#{filters}"
+        )
+
+      assert json_response(conn, 200) == [
+               %{
+                 "visitors" => 2,
+                 "name" => "true",
+                 "events" => 2,
+                 "conversion_rate" => 66.7,
+                 "total_revenue" => %{"long" => "€80.00", "short" => "€80.0"},
+                 "average_revenue" => %{"long" => "€40.00", "short" => "€40.0"}
+               },
+               %{
+                 "visitors" => 1,
+                 "name" => "false",
+                 "events" => 1,
+                 "conversion_rate" => 33.3,
+                 "total_revenue" => %{"long" => "€10.00", "short" => "€10.0"},
+                 "average_revenue" => %{"long" => "€10.00", "short" => "€10.0"}
+               }
+             ]
+    end
+
+    test "does not return revenue metrics when filtering by many revenue goals with different currencies",
+         %{conn: conn, site: site} do
+      insert(:goal, site: site, event_name: "Payment", currency: "USD")
+      insert(:goal, site: site, event_name: "AddToCart", currency: "EUR")
+
+      populate_stats(site, [
+        build(:event,
+          name: "Payment",
+          "meta.key": ["logged_in"],
+          "meta.value": ["false"],
+          revenue_reporting_amount: Decimal.new("10"),
+          revenue_reporting_currency: "EUR"
+        )
+      ])
+
+      filters = Jason.encode!(%{goal: "Payment|AddToCart"})
+
+      conn =
+        get(
+          conn,
+          "/api/stats/#{site.domain}/custom-prop-values/whatever-prop?period=day&filters=#{filters}"
+        )
+
+      returned_metrics =
+        json_response(conn, 200)
+        |> List.first()
+        |> Map.keys()
+
+      refute "Average revenue" in returned_metrics
+      refute "Total revenue" in returned_metrics
     end
   end
 

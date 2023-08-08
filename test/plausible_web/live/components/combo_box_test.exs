@@ -70,9 +70,9 @@ defmodule PlausibleWeb.Live.Components.ComboBoxTest do
         |> render_sample_component()
         |> find("div#input-picker-main-test-component")
 
-      assert text_of_attr(main, "x-on:keydown.arrow-up") == "focusPrev"
-      assert text_of_attr(main, "x-on:keydown.arrow-down") == "focusNext"
-      assert text_of_attr(main, "x-on:keydown.enter") == "select()"
+      assert text_of_attr(main, "x-on:keydown.arrow-up.prevent") == "focusPrev"
+      assert text_of_attr(main, "x-on:keydown.arrow-down.prevent") == "focusNext"
+      assert text_of_attr(main, "x-on:keydown.enter.prevent") == "select"
     end
 
     test "Alpine.js: component sets up close on click-away" do
@@ -191,6 +191,14 @@ defmodule PlausibleWeb.Live.Components.ComboBoxTest do
       refute element_exists?(doc, suggestion_li(8))
       refute element_exists?(doc, suggestion_li(9))
     end
+
+    test "clearing search input resets to all options", %{conn: conn} do
+      {:ok, lv, _html} = live_isolated(conn, SampleView, session: %{})
+      type_into_combo(lv, "test-component", "Echo me")
+      doc = type_into_combo(lv, "test-component", "")
+
+      for i <- 1..7, do: assert(element_exists?(doc, suggestion_li(i)))
+    end
   end
 
   describe "creatable integration" do
@@ -230,6 +238,14 @@ defmodule PlausibleWeb.Live.Components.ComboBoxTest do
              |> type_into_combo("test-creatable-component", "my new option")
              |> text_of_element("li#dropdown-test-creatable-component-option-0 a") ==
                ~s(Create "my new option")
+    end
+
+    test "does not suggest creating value when input exact matches a suggestion", %{conn: conn} do
+      {:ok, lv, _html} = live_isolated(conn, CreatableView, session: %{})
+
+      assert lv
+             |> type_into_combo("test-creatable-component", "Option 1")
+             |> text_of_element("li#dropdown-test-creatable-component-option-0 a") == ~s(Option 1)
     end
 
     test "stores new value by clicking on the dropdown custom option", %{conn: conn} do
