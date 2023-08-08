@@ -6,7 +6,7 @@ const CssMinimizerWebpackPlugin = require('css-minimizer-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = (env, options) => ({
-  devtool: 'eval-source-map',
+  devtool: "source-map",
   optimization: {
     minimizer: [
       new TerserPlugin(),
@@ -44,6 +44,12 @@ module.exports = (env, options) => ({
     new CopyWebpackPlugin({patterns: [{from: 'static/', to: '../' }]}),
     new webpack.ProvidePlugin({
       ResizeObserver: ['@juggle/resize-observer', 'ResizeObserver'] // https://caniuse.com/?search=ResizeObserver
-    })
+    }),
+    process.env.NODE_ENV === "production" 
+      ? [new ReplaySourceMapUploadWebpackPlugin({
+          filepaths: ["outputDir/"],
+          group: "<A unique version string or git SHA>"
+        })]
+      : [],
   ]
 });
